@@ -38,9 +38,12 @@ typedef struct {
 } TranslationPage;
 
 // Function Prototypes
+bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
 bool insert_dentry_in_empty_slab(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
 bool insert_dentry_by_eviction(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
 bool insert_ientry(TranslationPage *tp, unsigned long long key_hash, bool existing_entry);
+bool find_value_by_key_hash(TranslationPage *tp, unsigned long long key_hash, const char *key);
+bool delete_ientry(TranslationPage *tp, unsigned long long key_hash);
 
 // TranslationPage Constructor:
 TranslationPage* create_translation_page(int page_size, int slab_size, int i_entry_called) {
@@ -300,10 +303,62 @@ bool insert_ientry(TranslationPage *tp, unsigned long long key_hash, bool existi
     return true;
 }
 
+// finds value from key_hash
+bool find_value_by_key_hash(TranslationPage *tp, unsigned long long key_hash, const char *key) {
+    int slab_index = get(tp->key_hashes, key_hash);  // Check if key_hash exists
 
+    if (slab_index != NOT_FOUND) {  // if key_hash in self.key_hashes: (key_hash exists)
+        if (slab_index != -1) {  // It's a D-entry
+            if (slab_index < tp->d_entry_slabs) {
+                DEntry *d_entry = &tp->d_entries[slab_index]; // Get's the Dentry
+                assert(d_entry->key_hash == key_hash);  // assert(self.d_entries[slab_index]['key_hash'] == key_hash)
+                assert(strncmp(d_entry->key, key, strlen(key)) == 0);  // assert(self.d_entries[slab_index]['key'] == key)
 
-int main(){
-    printf("hello word");
+                tp->read_d_entry += 1;  // Increment D-entry read count
+                return true;
+            }
+            return false;  // Invalid slab index
+        }
+        else {  // It's an I-entry
+            assert(hashset_contains(tp->i_entries, key_hash));  // assert(key_hash in self.i_entries)
+            tp->read_i_entry += 1;  // Increment I-entry read count
+            return true;
+        }
+    }
 
-    return 1;
+    return false;  // key_hash not found
+}
+
+bool delete_dentry(TranslationPage *tp, unsigned long long key_hash) {
+    int slab = get(tp->key_hashes, key_hash);  // -2 = not found, -1 = ientry
+
+    if (slab != NOT_FOUND && slab != -1) {
+        for (int i = slab; i < tp->d_entry_slabs - 1; i++) 
+            tp->d_entries[i] = tp->d_entries[i + 1]; //self.d_entries.pop(slab)
+        
+        tp->d_entry_slabs--; 
+
+        // Remove the key_hash from the hash map
+        delete(tp->key_hashes, key_hash);  // del self.key_hashes[key_hash] 
+
+        // Sort d_entries to maintain order and update key_hashes
+        sort_dentries(tp);  
+
+        return true;  // Deletion successful
+    }
+
+    return false;  // Nothing deleted
+}
+
+bool delete_ientry(TranslationPage *tp, unsigned long long key_hash) {
+    if (hashset_contains(tp->i_entries, key_hash)) {  // if key_hash in self.i_entries: (checks if key_hash is in Ientries)
+        hashset_delete(tp->i_entries, key_hash);  // self.i_entries.remove(key_hash) (remove key_hash from i_entries)
+        tp->i_entry_count--;  
+
+        delete(tp->key_hashes, key_hash);  // del self.key_hashes[key_hash] (delete key_hash from key_hashes)
+
+        return true;  // Deletion successful
+    }
+
+    return false;  // Nothing deleted
 }
