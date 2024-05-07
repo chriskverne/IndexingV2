@@ -2,7 +2,7 @@
 #include "HashMap.h"
 
 // Simple hash function to map key_hash to a bucket
-unsigned int hash(int key_hash, int capacity) {
+unsigned int hash(unsigned long long key_hash, int capacity) {
     return key_hash % capacity;
 }
 
@@ -20,7 +20,7 @@ HashMap* create_hashmap(int capacity) {
 }
 
 // Insert or update an entry in the hashmap
-void hashmap_put(HashMap* map, int key_hash, int index) {
+void hashmap_put(HashMap* map, unsigned long long key_hash, int index) {
     unsigned int bucketIndex = hash(key_hash, map->capacity);
     Entry* entry = map->entries[bucketIndex];
 
@@ -44,10 +44,9 @@ void hashmap_put(HashMap* map, int key_hash, int index) {
 }
 
 // Retrieve an index from the hashmap
-int hashmap_get(HashMap* map, int key_hash) {
+int hashmap_get(HashMap* map, unsigned long long key_hash) {
     unsigned int bucket = hash(key_hash, map->capacity);
     Entry* entry = map->entries[bucket];
-
     while (entry != NULL) {
         if (entry->key_hash == key_hash) {
             return entry->index;
@@ -58,7 +57,21 @@ int hashmap_get(HashMap* map, int key_hash) {
     return NOT_FOUND; // returns -2 if not found because -1 is index of Ientry
 }
 
-void hashmap_delete(HashMap* map, int key_hash) {
+// if key_hash in self.key_hashes
+bool hashmap_contains(HashMap* map, unsigned long long key_hash){
+    unsigned int bucket = hash(key_hash, map->capacity);
+    Entry* entry = map->entries[bucket];
+    while (entry != NULL) {
+        if (entry->key_hash == key_hash) {
+            return true;
+        }
+        entry = entry->next;
+    }
+
+    return false; // returns -2 if not found because -1 is index of Ientry
+}
+
+void hashmap_delete(HashMap* map, unsigned long long key_hash) {
     unsigned int bucketIndex = hash(key_hash, map->capacity);
     Entry* entry = map->entries[bucketIndex];
     Entry* prev = NULL;
