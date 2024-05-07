@@ -64,8 +64,9 @@ void sort_dentries(TranslationPage *tp) {
 
 
 bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val) {
-    int slab = hashmap_get(tp->key_hashes, key_hash);  // returns -2 for not found, -1 for Ientry, Index for Dentry
-    if(slab != NOT_FOUND){ // if key_hash in self.key_hashes (checks whether key_hash exists)
+    if(hashmap_contains(tp->key_hashes, key_hash)){ // if key_hash in self.key_hashes (checks whether key_hash exists)
+        int slab = hashmap_get(tp->key_hashes, key_hash);  // returns -2 for not found, -1 for Ientry, Index for Dentry
+        printf("slab exists");
         if (slab != -1 && slab < tp->d_entry_slabs) { // if slab != -1 and slab < self.d_entry_slabs (key is a Dentry)
             assert(tp->entry_type[slab] == 0); // Confirm slab is a Dentry
 
@@ -161,8 +162,10 @@ bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen
 // Function to insert a DEntry in an empty slab
 bool insert_dentry_in_empty_slab(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val) {
     // Check if there is room to add a new DEntry
-    if (tp->d_entry_slabs + tp->i_entry_slabs == tp->tt_slab) 
+    if (tp->d_entry_slabs + tp->i_entry_slabs == tp->tt_slab) {
+        printf("Failed to insert: Slab full. Current load: %d, Capacity: %d\n", tp->d_entry_slabs + tp->i_entry_slabs, tp->tt_slab);
         return false;
+    }
 
     int slab = tp->d_entry_slabs; // Get new slab index
 
@@ -230,7 +233,7 @@ bool insert_dentry_by_eviction(TranslationPage *tp, unsigned long long key_hash,
 bool insert_ientry(TranslationPage *tp, unsigned long long key_hash, bool existing_entry) {
     // Check if the entry is new and assert key_hash not in key_hashes
     if (!existing_entry) 
-        assert(hashmap_get(tp->key_hashes, key_hash) == NOT_FOUND); // assert(key_hash not in self.key_hashes)
+        assert(!hashmap_contains(tp->key_hashes, key_hash)); // assert(key_hash not in self.key_hashes)
     
     int i_entry_per_slab = tp->slab_size / tp->i_entry_size;
 
@@ -259,9 +262,8 @@ bool insert_ientry(TranslationPage *tp, unsigned long long key_hash, bool existi
 
 // finds value from key_hash
 bool find_value_by_key_hash(TranslationPage *tp, unsigned long long key_hash, const char *key) {
-    int slab_index = hashmap_get(tp->key_hashes, key_hash);  // Check if key_hash exists
-
-    if (slab_index != NOT_FOUND) {  // if key_hash in self.key_hashes: (key_hash exists)
+    if (hashmap_contains(tp->key_hashes, key_hash)) {  // if key_hash in self.key_hashes: (key_hash exists)
+        int slab_index = hashmap_get(tp->key_hashes, key_hash);  // Check if key_hash exists
         if (slab_index != -1) {  // It's a D-entry
             if (slab_index < tp->d_entry_slabs) {
                 DEntry *d_entry = &tp->d_entries[slab_index]; // Get's the Dentry
