@@ -1,18 +1,25 @@
 #include "KVSSD.h"
 
 // Function to initialize a KVSSD instance
-void init_KVSSD(KVSSD *ssd, size_t capacity, size_t page_size) {
+void init_KVSSD(KVSSD *ssd, unsigned long long capacity, size_t page_size) {
     ssd->capacity = capacity;
     ssd->page_size = page_size;
     ssd->pages_per_block = 256; // Default
 
-    ssd->block_size = ssd->page_size * ssd->pages_per_block;
+    ssd->block_size = (unsigned long long)ssd->page_size * (unsigned long long)ssd->pages_per_block;
+    printf("Block size: %zu\n", ssd->block_size);
+
     ssd->tt_blocks = ssd->capacity / ssd->block_size;
+    printf("Total blocks: %zu\n", ssd->tt_blocks);
+
     ssd->tt_pages = ssd->tt_blocks * ssd->pages_per_block;
+    printf("Total pages: %zu\n", ssd->tt_pages);
+
     ssd->address_size = 4;  // Default
     ssd->index_slab_size = 200;
     ssd->l2p_ratio = 1;
     ssd->gmd_len = (size_t)(ssd->tt_pages * ssd->l2p_ratio);
+    printf("GMD length: %zu\n", ssd->gmd_len);
 
     // Allocate memory for the GMD array
     ssd->gmd = malloc(ssd->gmd_len * sizeof(TranslationPage *));
@@ -44,27 +51,37 @@ uint64_t hash_k(const char *key) {
 }
 
 // Returns index of translation page
-size_t get_translation_page(KVSSD *ssd, int key_hash) {
+size_t get_translation_page(KVSSD *ssd, uint64_t key_hash) {
     return key_hash % ssd->gmd_len;
 }
 
 bool write(KVSSD *kvssd, const char *key, size_t klen, int val, size_t vlen) {
     uint64_t key_hash = hash_k(key);
+    printf("Initial key hash: %llu\n", key_hash); // Print the initial hash of the key
+
 
     for (int i = 0; i < kvssd->max_retry; i++) {
         uint64_t key_hash_retry = key_hash + (uint64_t)i * (uint64_t)i;
-
         size_t t_page_idx = get_translation_page(kvssd, key_hash_retry);
+        printf("Retry %d: Key hash retry: %llu, Translation page index: %zu\n", i, key_hash_retry, t_page_idx); // Debugging the key hash retry and page index
+
+
         TranslationPage *t_page = kvssd->gmd[t_page_idx];
 
         if (t_page == NULL) {
+            printf("Creating new translation page at index %zu\n", t_page_idx); // Indicates a new page is being created
             t_page = create_translation_page(kvssd->page_size, kvssd->index_slab_size, kvssd->i_entry_called); // i_entry called = 0
             kvssd->gmd[t_page_idx] = t_page;
+        } else {
+            printf("Using existing translation page at index %zu\n", t_page_idx); // Indicates using an existing page
         }
 
         bool ret = insert(t_page, key_hash_retry, klen, vlen, key, val);
-        if (ret) 
+
+
+        if (ret) {
             return true;  // Write successful
+        }
         
         kvssd->retries++;
     }
@@ -104,22 +121,21 @@ bool delete(KVSSD *kvssd, const char *key) {
         TranslationPage *t_page = kvssd->gmd[t_page_idx];  
 
         if (t_page == NULL) 
-            continue; // original (return false)
+            return false; // original (return false)
 
-        int slab_index = hashmap_get(t_page->key_hashes, key_hash_retry);  // Get the index of the entry in the hash map
 
-        if (slab_index == NOT_FOUND) // if key_hash in t_page.key_hashes:
-            continue;  
-        
-        bool ret;
+        if(hashmap_contains(t_page->key_hashes, key_hash)){
+            bool ret;
+            int slab_index = hashmap_get(t_page->key_hashes, key_hash_retry);  // Get the index of the entry in the hash map
 
-        if (slab_index != -1)  
-            ret = delete_dentry(t_page, key_hash_retry); // Delete D-entry
+            if (slab_index != -1)  
+                ret = delete_dentry(t_page, key_hash_retry); // Delete D-entry
 
-        else 
-            ret = delete_ientry(t_page, key_hash_retry); // Delete I-entry
+            else 
+                ret = delete_ientry(t_page, key_hash_retry); // Delete I-entry
 
-        if (ret) return ret;
+            if (ret) return ret;
+        }
     }
 
     return false; 
@@ -176,35 +192,28 @@ void get_stats(KVSSD *kvssd) {
 
 
 int main() {
-    // Initialize the KVSSD instance
     KVSSD *kvssd = malloc(sizeof(KVSSD));
-    init_KVSSD(kvssd, (size_t)(4ULL * 1024 * 1024 * 1024), 1024);  // NEED TO CHANGE CAPACITY TO LONG LONG
-
-    // Define key and value lengths
-    size_t klen = 4;  // Key length in bytes
-    size_t vlen = 4;  // Value length in bytes (assuming it represents the size of the data)
-
-    printf("here");
-    // Loop to create and write keys
-    for (int i = 0; i < 10; i++) {
-        char key[4];  // Buffer to hold the binary representation of the key
-        int val = 1;  // Value to write
-
-        // Convert integer i to 4-byte key (similar to to_bytes in Python)
-        memcpy(key, &i, sizeof(int));
-
-        // Write the key-value pair to the KVSSD
-        if (!write(kvssd, key, klen, val, vlen)) {
-            printf("Write failed for key %d\n", i);
-        }
+    if (kvssd == NULL) {
+        fprintf(stderr, "Failed to allocate memory for KVSSD.\n");
+        return 1;
     }
 
+    // Initialize with 4 GB capacity and 1 KB page size
+    init_KVSSD(kvssd, 4ULL * 1024 * 1024 * 1024, 1024);
 
-    printf("starting");
+    size_t klen = 4; // Key length in bytes
+    size_t vlen = 4; // Value length in bytes
+    int val = 1;     // Value to insert
+
+    char key[4]; // Buffer for the key
+
+    for (unsigned int i = 0; i < 50000; i++) {
+        memcpy(key, &i, klen); // Convert integer i to 4-byte key
+        write(kvssd, key, klen, val, vlen);
+    }
 
     get_stats(kvssd);
 
-    printf("done!");
 
     return 0;
 }
