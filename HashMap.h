@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define NOT_FOUND -2  // Define constant for not found cases
 
@@ -19,10 +20,11 @@ typedef struct {
     int count; // Number of key-value pairs stored in the hash map
 } HashMap;
 
-unsigned int hash(int key_hash, int capacity);
+unsigned int hash(unsigned long long key_hash, int capacity);
 HashMap* create_hashmap(int capacity);
-void hashmap_put(HashMap* map, int key_hash, int index);
-int hashmap_get(HashMap* map, int key_hash);
-void hashmap_delete(HashMap* map, int key_hash);
+void hashmap_put(HashMap* map, unsigned long long key_hash, int index);
+int hashmap_get(HashMap* map, unsigned long long key_hash);
+bool hashmap_contains(HashMap* map, unsigned long long key_hash);
+void hashmap_delete(HashMap* map, unsigned long long key_hash);
 
 #endif
