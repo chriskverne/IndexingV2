@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 typedef struct {
-    size_t capacity;
+    unsigned long long capacity;
     size_t page_size;
     int pages_per_block;
 
@@ -27,10 +27,10 @@ typedef struct {
 } KVSSD;
 
 // Function Prototypes
-void init_KVSSD(KVSSD *ssd, size_t capacity, size_t page_size);
+void init_KVSSD(KVSSD *ssd, unsigned long long capacity, size_t page_size);
 size_t gmd_size(KVSSD *kvssd);
 uint64_t hash_k(const char *key);
-size_t get_translation_page(KVSSD *ssd, int key_hash);
+size_t get_translation_page(KVSSD *ssd, uint64_t key_hash);
 bool write(KVSSD *kvssd, const char *key, size_t klen, int val, size_t vlen);
 bool read(KVSSD *kvssd, const char *key);
 bool delete(KVSSD *kvssd, const char *key);
