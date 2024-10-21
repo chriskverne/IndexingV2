@@ -7,9 +7,17 @@
 #include <stdbool.h> 
 #include <assert.h> 
 
-#include "HashSet.h" // Ientries array
-#include "HashMap.h" // Key_hashes
-#include "Dentry.h" // Dentry defintion
+#include "HashSet.c" // Ientries array
+#include "HashMap.c" //key_hashes
+
+typedef struct {
+    unsigned long long key_hash; 
+    char key[256]; 
+    int val;
+    int klen;
+    int vlen;
+    int num_slabs;
+} DEntry;
 
 typedef struct {
     int threshold;
@@ -24,7 +32,6 @@ typedef struct {
 
     // Counters
     int d_entry_slabs;
-    int d_entry_count;
     int i_entry_count;
     int evictions;
     int updates;
@@ -40,15 +47,25 @@ typedef struct {
 
 // Function Prototypes
 TranslationPage* create_translation_page(int page_size, int slab_size, int threshold);
+
+DEntry create_dentry(unsigned long long key_hash, const char *key, int val, int klen, int vlen, int num_slabs);
+
 int compare_dentries(const void *a, const void *b);
+
 void update_key_hashes(TranslationPage *tp);
-void sort_dentries(TranslationPage *tp);
+
 bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
-bool insert_dentry_in_empty_slab(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
+
+bool insert_dentry(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
+
 bool insert_dentry_by_eviction(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
-bool insert_ientry(TranslationPage *tp, unsigned long long key_hash, bool existing_entry);
+
+bool insert_ientry(TranslationPage *tp, unsigned long long key_hash);
+
 bool find_value_by_key_hash(TranslationPage *tp, unsigned long long key_hash, const char *key);
+
 bool delete_dentry(TranslationPage *tp, unsigned long long key_hash);
+
 bool delete_ientry(TranslationPage *tp, unsigned long long key_hash);
 
 #endif // TRANSLATIONPAGE_H
