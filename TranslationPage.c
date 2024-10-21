@@ -1,28 +1,22 @@
 #include "TranslationPage.h"
 
 // TranslationPage Constructor:
-TranslationPage* create_translation_page(int page_size, int slab_size, int i_entry_called) {
+TranslationPage* create_translation_page(int page_size, int slab_size, int threshold) {
     TranslationPage *tp = malloc(sizeof(TranslationPage));
     if (!tp) return NULL;
 
-    tp->slab_size = slab_size; // Currently set to 170
+    tp->threshold = threshold;
+    tp->slab_size = slab_size; 
     tp->tt_slab = page_size / slab_size;
 
-    tp->entry_type = malloc(sizeof(int) * tp->tt_slab);
-    // Initialize entry_type array
-    for (int i = 0; i < tp->tt_slab; i++) 
-        tp->entry_type[i] = -1;
-    
-
-    tp->d_entries = calloc(tp->tt_slab, sizeof(DEntry));// Allocate or initialize depending on how d_entries is supposed to be structured
-    tp->i_entries = hashset_create(tp->tt_slab);  // Same capacity as tt_slab for simplicity
+    tp->d_entries = (DEntry*)malloc(tp->tt_slab * sizeof(DEntry));
+    tp->i_entries = hashset_create(tp->tt_slab); 
     tp->key_hashes = create_hashmap(tp->tt_slab);
 
-    tp->i_entry_size = 16 + 4;  
-    tp->effective_slab_size = slab_size - 1 - 16; 
+    tp->dentry_idx = 0; 
 
     tp->d_entry_slabs = 0;
-    tp->i_entry_slabs = 0;
+    tp->d_entry_count = 0;
     tp->i_entry_count = 0;
     tp->evictions = 0;
     tp->updates = 0;
@@ -34,7 +28,6 @@ TranslationPage* create_translation_page(int page_size, int slab_size, int i_ent
     tp->update_i_entry = 0;
     tp->read_d_entry = 0;
     tp->read_i_entry = 0;
-    tp->i_entry_fn_called = i_entry_called;
 
     return tp;
 }

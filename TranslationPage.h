@@ -12,20 +12,19 @@
 #include "Dentry.h" // Dentry defintion
 
 typedef struct {
+    int threshold;
     int slab_size;
     int tt_slab;
-    int *entry_type; // [-1,-1,-1,1-1...]
 
     DEntry *d_entries; //  [ {key_hash1, type1, klen1, vlen1, key1, va1} , {key_hash2, type2, klen2, vlen2, key2, va2} ...]
     HashSet *i_entries;   // [key_hash1, key_hash2, key_hash3....]
     HashMap *key_hashes;  // { (key_hash1 : index1) , (key_hash2 : index2)...}
 
-    int i_entry_size;
-    int effective_slab_size;
+    int dentry_idx; // Index of D_entry in d_entries (i.e index to insert)
 
     // Counters
     int d_entry_slabs;
-    int i_entry_slabs;
+    int d_entry_count;
     int i_entry_count;
     int evictions;
     int updates;
@@ -37,11 +36,10 @@ typedef struct {
     int update_i_entry;
     int read_d_entry;
     int read_i_entry;
-    int i_entry_fn_called;
 } TranslationPage;
 
 // Function Prototypes
-TranslationPage* create_translation_page(int page_size, int slab_size, int i_entry_called);
+TranslationPage* create_translation_page(int page_size, int slab_size, int threshold);
 int compare_dentries(const void *a, const void *b);
 void update_key_hashes(TranslationPage *tp);
 void sort_dentries(TranslationPage *tp);

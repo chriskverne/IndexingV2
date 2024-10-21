@@ -1,9 +1,9 @@
 // DEntry Structure
 typedef struct {
     unsigned long long key_hash; 
-    int type;
+    char key[256]; 
+    int val;
     int klen;
     int vlen;
-    char key[256];  // Array of bytes to store the key
-    int val;
+    int slabs_needed;
 } DEntry;
