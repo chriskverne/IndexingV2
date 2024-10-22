@@ -1,4 +1,5 @@
 #ifndef TRANSLATIONPAGE_H
+#define NOT_FOUND -2 // Special marker for a key not found
 #define TRANSLATIONPAGE_H
 
 #include <stdlib.h>
@@ -6,10 +7,33 @@
 #include <string.h> 
 #include <stdbool.h> 
 #include <assert.h> 
+#include "math.h"
 
-#include "HashSet.c" // Ientries array
-#include "HashMap.c" //key_hashes
+// Hashmap structures
 
+typedef struct {
+    unsigned long long key_hash;
+    int value; // -1 or index in d_entries array
+    bool is_occupied;
+} HashMapEntry;
+
+typedef struct {
+    HashMapEntry *table;
+    int size;
+} HashMap;
+
+// Hashset structures
+typedef struct {
+    unsigned long long key_hash;
+    bool is_occupied;
+} HashSetEntry;
+
+typedef struct {
+    HashSetEntry *table;
+    int size;
+} HashSet;
+
+// Dentry structure
 typedef struct {
     unsigned long long key_hash; 
     char key[256]; 
@@ -46,11 +70,29 @@ typedef struct {
 } TranslationPage;
 
 // Function Prototypes
+HashMap* create_hashmap(int size);
+
+int hash_function_map(unsigned long long key_hash, int table_size);
+
+void hashmap_put(HashMap *map, unsigned long long key_hash, int value);
+
+int hashmap_get(HashMap *map, unsigned long long key_hash);
+
+void hashmap_delete(HashMap *map, unsigned long long key_hash);
+
+HashSet* create_hash_set(int size);
+
+int hash_function(unsigned long long key_hash, int table_size);
+
+void hash_set_put(HashSet *set, unsigned long long key_hash);
+
+bool hash_set_contains(HashSet *set, unsigned long long key_hash);
+
+void hash_set_delete(HashSet *set, unsigned long long key_hash);
+
 TranslationPage* create_translation_page(int page_size, int slab_size, int threshold);
 
 DEntry create_dentry(unsigned long long key_hash, const char *key, int val, int klen, int vlen, int num_slabs);
-
-int compare_dentries(const void *a, const void *b);
 
 void update_key_hashes(TranslationPage *tp);
 
