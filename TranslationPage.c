@@ -1,15 +1,51 @@
 #include "TranslationPage.h"
 
 // Debugging functions
-print_dentries(TranslationPage *tp){
-    for (int i = 0; i < tp->dentry_idx; i++){
-        DEntry entry = tp->d_entries[i];
-        printf("Entry: %d, key_hash: %d, klen: %d, vlen: %d, num_slabs: %d\n", i, entry.key_hash, entry.klen, entry.vlen, entry.num_slabs);
-    }
+void print_dentry(DEntry entry) {
+    printf("DEntry - key_hash: %llu, key: %s, val: %d, klen: %d, vlen: %d, num_slabs: %d\n", 
+           entry.key_hash, 
+           entry.key, 
+           entry.val, 
+           entry.klen, 
+           entry.vlen, 
+           entry.num_slabs);
 }
 
-print_ientries(TranslationPage *tp){
-    
+void print_dentries(TranslationPage *tp){
+    printf("\n=== D-Entries ===\n");
+    for (int i = 0; i < tp->dentry_idx; i++){
+        DEntry entry = tp->d_entries[i];
+        print_dentry(entry);
+    }
+    printf("Total D-Entries: %d\n", tp->dentry_idx);
+}
+
+void print_ientries(TranslationPage *tp){
+    printf("\n=== I-Entries ===\n");
+    for (int i = 0; i < tp->i_entries->size; i++) {
+        if (tp->i_entries->table[i].is_occupied) {
+            printf("Key Hash: %llu\n", tp->i_entries->table[i].key_hash);
+        }
+    }
+    printf("Total I-Entries: %d\n", tp->i_entry_count);
+}
+
+void print_key_hashes(TranslationPage *tp){
+    printf("\n=== Key Hash Mappings ===\n");
+    for (int i = 0; i < tp->key_hashes->size; i++) {
+        if (tp->key_hashes->table[i].is_occupied) {
+            printf("Key Hash: %llu, Idx: %d", 
+                   tp->key_hashes->table[i].key_hash, 
+                   tp->key_hashes->table[i].value);
+            // Add clarification for special values
+            if (tp->key_hashes->table[i].value == -1) {
+                printf(" (I-Entry)");
+            } else if (tp->key_hashes->table[i].value >= 0) {
+                printf(" (D-Entry)");
+            }
+            printf("\n");
+        }
+    }
 }
 
 // Create hashmap of size tt_slab
@@ -19,7 +55,9 @@ HashMap* create_hashmap(int size) {
     map->size = size;
 
     for (int i = 0; i < size; i++) {
-        map->table[i].is_occupied = false;
+        map->table[i].is_occupied = false; // Mark as not occupied
+        map->table[i].key_hash = 0; // Initialize key_hash to 0 (or another invalid value)
+        map->table[i].value = NOT_FOUND; // Initialize value to NOT_FOUND (-2 or another special value)
     }
 
     return map;
@@ -185,15 +223,29 @@ DEntry create_dentry(unsigned long long key_hash, const char *key, int val, int 
 
 // Updates indexes of key_hashes to reflect change in d_entries array
 void update_key_hashes(TranslationPage *tp) {
-    for (int i = 0; i < tp->tt_slab; i++) {
-        hashmap_put(tp->key_hashes, tp->d_entries[i].key_hash, i);
+    print_dentries(tp);
+    
+    // Clear the existing key_hashes hashmap before updating
+    for (int i = 0; i < tp->key_hashes->size; i++) {
+        tp->key_hashes->table[i].is_occupied = false;
+        tp->key_hashes->table[i].key_hash = 0;
+        tp->key_hashes->table[i].value = NOT_FOUND;
+    }
+
+    // Update key_hashes based on the current d_entries
+    for (int i = 0; i < tp->dentry_idx; i++) {  // Use dentry_idx instead of tt_slab
+        if (tp->d_entries[i].key_hash != 0) {    // Skip empty/deleted entries
+            hashmap_put(tp->key_hashes, tp->d_entries[i].key_hash, i);
+        }
     }
 }
+
 
 bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val) {
     int slabs_needed = ceil((double)(klen + vlen) / tp->slab_size);
 
-    if(hashmap_get(tp->key_hashes, key_hash) != NOT_FOUND){ // if key_hash in self.key_hashes (checks whether key_hash exists)
+    // if key_hash exists update
+    if(hashmap_get(tp->key_hashes, key_hash) != NOT_FOUND){ 
         int idx = hashmap_get(tp->key_hashes, key_hash);  // returns -2 for not found, -1 for Ientry, Index for Dentry
 
         // Update D-entry
@@ -255,7 +307,9 @@ bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen
                 }
                 delete_ientry(tp, key_hash); // delete current entry
                 insert_dentry(tp, key_hash, klen, vlen, key, val); // insert it as d-entry
-            } else{
+            } 
+            // I-entry becomes a new I-entry (No need to do anything)
+            else{
                 printf("Updating I-entry to I-entry\n");
             }
             
@@ -271,9 +325,7 @@ bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen
         if (ret){
             tp->new_d_entry++;
             return true;
-        } 
-        else{
-            printf("Couldn't insert D-entry (not enough space)\n");
+        } else{
             ret = insert_dentry_by_eviction(tp, key_hash, klen, vlen, key, val);
             if(ret){
                 return true;
@@ -303,12 +355,12 @@ bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen
 bool insert_dentry(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val) {
     printf("Inserting new D-entry\n");
     int slabs_needed = ceil((double)(klen + vlen) / tp->slab_size);
-    if (tp->d_entry_slabs + tp->i_entry_count + slabs_needed >= tp->tt_slab){
+    if (tp->d_entry_slabs + tp->i_entry_count + slabs_needed > tp->tt_slab){
         printf("Not enough space to insert new D-entry\n");
         return false;
     }
     
-    // Add dentry to d_entries array and update key_hashes
+// Add dentry to d_entries array and update key_hashes
     DEntry new_dentry = create_dentry(key_hash, key, val, klen, vlen, slabs_needed);
     tp->d_entries[tp->dentry_idx] = new_dentry;
     hashmap_put(tp->key_hashes, key_hash, tp->dentry_idx);
@@ -322,14 +374,12 @@ bool insert_dentry(TranslationPage *tp, unsigned long long key_hash, int klen, i
 
 // insert d_entry by eviction
 bool insert_dentry_by_eviction(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val) {
-    printf("Inserting D-entry by evicting other D-entry\n");
     int slabs_needed = ceil((double)(klen + vlen) / tp->slab_size);
-    printf("New d-entry needs: %d slabs\n", slabs_needed);
-    printf("num of d-entries: %d\n", tp->dentry_idx);
+    printf("Inserting D-entry by evicting other D-entry, New d-entry needs: %d slabs\n", slabs_needed);
     // Look for D-entry of greater size to evict
     for(int i = 0; i < tp->dentry_idx; i++){
-        printf("this d-entry has %d number of slabs, when new entry needs %d slabs\n", tp->d_entries[i].num_slabs, slabs_needed);
         if(tp->d_entries[i].num_slabs > slabs_needed){
+            printf("larger D-entry found, key_hash: %d\n", tp->d_entries[i].key_hash);
             unsigned long long evict_key_hash = tp->d_entries[i].key_hash;
             delete_dentry(tp, evict_key_hash);
             insert_dentry(tp, key_hash, klen, vlen, key, val);
@@ -379,15 +429,22 @@ bool find_value_by_key_hash(TranslationPage *tp, unsigned long long key_hash, co
 
 // SHOULD BE DONE
 bool delete_dentry(TranslationPage *tp, unsigned long long key_hash) {
+    printf("Trying to delete d-entry, key_hash: %d", key_hash);
+    //print_dentries(tp);
+    //print_key_hashes(tp);
     int idx = hashmap_get(tp->key_hashes, key_hash);  // -2 = not found, -1 = ientry
     if (idx == NOT_FOUND || idx == -1) {
+        printf("couldn't delete");
         return false;  // Not a Dentry
     }
 
     int num_slabs = tp->d_entries[idx].num_slabs;
 
+    // Remove key_hash from the hash map
+    hashmap_delete(tp->key_hashes, key_hash);  
+
     // Delete dentry from dentries
-    for (int i = idx; i < tp->d_entry_slabs - 1; i++) 
+    for (int i = idx; i < tp->dentry_idx; i++) 
         tp->d_entries[i] = tp->d_entries[i + 1]; 
 
     // Clear the last entry (now a duplicate after shifting)
@@ -397,11 +454,10 @@ bool delete_dentry(TranslationPage *tp, unsigned long long key_hash) {
     tp->d_entries[tp->dentry_idx - 1].vlen = 0;      // Reset value length
     tp->d_entries[tp->dentry_idx - 1].num_slabs = 0; // Reset slab count
 
-    // Remove key_hash from the hash map
-    hashmap_delete(tp->key_hashes, key_hash);  
+    printf("\nDone deleting D-entry, d_entru\n");
 
     // update indexes in key_hashes
-    update_key_hashes(tp);
+    //update_key_hashes(tp);
 
     tp->d_entry_slabs -= num_slabs; 
     tp->dentry_idx--;
@@ -423,8 +479,8 @@ bool delete_ientry(TranslationPage *tp, unsigned long long key_hash) {
 
 
 int main() {
-    // 25 slabs, 100b threshold
-    TranslationPage *tp = create_translation_page(40, 20, 100);
+    // 5 slabs
+    TranslationPage *tp = create_translation_page(10000, 20, 100);
 
     unsigned long long key_hash1 = 1ULL;
     unsigned long long key_hash2 = 2ULL;
@@ -434,22 +490,68 @@ int main() {
     unsigned long long key_hash6 = 6ULL;
     unsigned long long key_hash7 = 7ULL;
 
+    // Testing HashMap (Seems to work for some reason)
+    /*
+    printf("Testing hashmap:\n");
+    print_key_hashes(tp);
+    hashmap_put(tp->key_hashes, key_hash1, 0);
+    hashmap_put(tp->key_hashes, key_hash2, 1);
+    hashmap_put(tp->key_hashes, key_hash3, 2);
+    print_key_hashes(tp);
+    hashmap_delete(tp->key_hashes, key_hash1);
+    print_key_hashes(tp);
+    */
+
+    // Test 1 insert D-entry/I-entry and insert D-entry by eviction
+    printf("Insert HashMap:\n");
+    print_key_hashes(tp);
+    insert(tp, key_hash1, 10, 10, "example_key", 42);
+    insert(tp, key_hash2, 10, 10, "example_key2", 42);
+    insert(tp, key_hash3, 10, 10, "example_key3", 42);
+    print_key_hashes(tp);
+    delete_dentry(tp, key_hash2);
+    print_key_hashes(tp);
+    printf("Trying to update key_hashes\n");
+    update_key_hashes(tp);
+    print_key_hashes(tp);
 
 
-    insert(tp, key_hash1, 10, 30, "example_key", 42);
-    insert(tp, key_hash2, 10, 0, "example_key", 42);
+    //insert(tp, key_hash2, 10, 70, "example_key2", 42);
+    //insert(tp, key_hash3, 10, 10, "example_key3", 42);
+    // Currently taking max space
+
+    //print_dentries(tp);
+    //print_ientries(tp);
+    //print_key_hashes(tp);
+
+    // Test 2) Update D-entry -> same size
+    // Test 2) Update D-entry -> smaller size
+    // Test 2) Update D-entry -> laerger size (with + without space)
+
+
+    // Test 3) Update I-entry -> I-entry
+    // Test 3) Update I-entry -> D-entry (with + without space)
+
+    // Test 4) Delete D-entry
+    // Test 4) Delete I-entry
+
+    // Test 5) Read D-entry
+    // Test 5) Read I-entry
+
+    // Test 6 check all counters
+
     //insert(tp, key_hash3, 10, 90, "example_key", 42);
     //insert(tp, key_hash4, 10, 90, "example_key", 42);
     //insert(tp, key_hash5, 10, 80, "example_key", 42);
     //insert(tp, key_hash6, 10, 10, "example_key", 42);
 
-    printf("%d\n", tp->d_entries[0].num_slabs);
-    printf("%d\n", tp->d_entries[1].num_slabs);
-    printf("%d\n", tp->d_entries[2].num_slabs);
-    printf("%d\n", tp->d_entries[3].num_slabs);
+    //printf("%d\n", tp->d_entries[0].num_slabs);
+    //printf("%d\n", tp->d_entries[1].num_slabs);
+    //printf("%d\n", tp->d_entries[2].num_slabs);
+    //printf("%d\n", tp->d_entries[3].num_slabs);
 
-    printf("Contains key_hash5 %d\n", hash_set_contains(tp->i_entries, key_hash5));
-    printf("Contains key_hash3 %d\n", hash_set_contains(tp->i_entries, key_hash3));
+    //printf("Contains key_hash5 %d\n", hash_set_contains(tp->i_entries, key_hash5));
+    //printf("Contains key_hash3 %d\n", hash_set_contains(tp->i_entries, key_hash3));
 
 
     // Clean up resources before exiting (free memory, etc.)
