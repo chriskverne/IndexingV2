@@ -1,22 +1,27 @@
-#include "TranslationPage.h"  // Include the header for TranslationPage
-#include "HashFunction/MurmurHash3.h"
+#include "TranslationPage.h" 
+#include "HashFunction/MurmurHash3New.h"
 #include <stdint.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
 
 typedef struct {
+    int threshold;
     unsigned long long capacity;
-    size_t page_size;
+    int page_size;
     int pages_per_block;
-
-    size_t block_size;
-    size_t tt_blocks;
-    size_t tt_pages;
-    size_t address_size;
-    size_t index_slab_size;
+    int block_size;
+    int tt_blocks;
+    int tt_pages;
+    int address_size;
+    int slab_size;
     float l2p_ratio;
-    size_t gmd_len;
-    TranslationPage **gmd;  // Pointer to array of TranslationPage pointers
+    int gmd_len;
+    TranslationPage **gmd;  
+    
+    int iteration;
 
     int max_retry;
     int rejections;
@@ -27,11 +32,11 @@ typedef struct {
 } KVSSD;
 
 // Function Prototypes
-void init_KVSSD(KVSSD *ssd, unsigned long long capacity, size_t page_size);
-size_t gmd_size(KVSSD *kvssd);
-uint64_t hash_k(const char *key);
-size_t get_translation_page(KVSSD *ssd, uint64_t key_hash);
-bool write(KVSSD *kvssd, const char *key, size_t klen, int val, size_t vlen);
+void init_KVSSD(KVSSD *ssd, unsigned long long capacity, int page_size, int slab_size, int threshold);
+int gmd_size(KVSSD *kvssd);
+unsigned long long hash_k(const char *key);
+int get_translation_page(KVSSD *ssd, unsigned long long key_hash);
+bool write(KVSSD *kvssd, const char *key, int klen, int val, int vlen);
 bool read(KVSSD *kvssd, const char *key);
 bool delete(KVSSD *kvssd, const char *key);
 void get_stats(KVSSD *kvssd);

@@ -70,6 +70,8 @@ typedef struct {
 } TranslationPage;
 
 // Function Prototypes
+void print_dentries(TranslationPage *tp);
+
 HashMap* create_hashmap(int size);
 
 int hash_function_map(unsigned long long key_hash, int table_size);
