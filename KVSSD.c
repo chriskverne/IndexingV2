@@ -130,6 +130,7 @@ bool delete(KVSSD *kvssd, const char *key) {
 
 // prints the specifics of our kvssd
 void get_stats(KVSSD *kvssd) {
+    printf("Getting stats\n");
     int tt_d_entry = 0, tt_i_entry_slab = 0, tt_i_entry = 0, tt_empty_slab = 0;
     int tt_keys = 0;
     int d_entry = 0, i_entry = 0;
@@ -190,6 +191,8 @@ void insert_random_kv_pairs(KVSSD *ssd, int num_pairs, int min_size, int max_siz
     for (int i = 0; i < num_pairs; i++) {
         int klen = min_size + rand() % (max_size - min_size + 1); // Random key length between min_size and max_size
         int vlen = min_size + rand() % (max_size - min_size + 1); // Random value length between min_size and max_size
+        
+        //printf("klen + vlen : %d\n", klen + vlen);
 
         char *key = malloc(klen + 1);  // +1 for the null terminator
         char *val = malloc(vlen + 1);  // +1 for the null terminator
@@ -203,6 +206,7 @@ void insert_random_kv_pairs(KVSSD *ssd, int num_pairs, int min_size, int max_siz
         generate_random_string(val, vlen);  // Generate random value
 
         int value_int = rand() % 10000;  // Example value: random integer
+
 
         // Insert the key-value pair into the KVSSD
         if (!write(ssd, key, value_int, klen, vlen)) {
@@ -221,17 +225,22 @@ int main() {
         return 1;
     }
 
-    // Initialize with 4 GB capacity and 1 KB page size
     init_KVSSD(ssd, 4ULL * 1024 * 1024 * 1024, 1024, 20, 200);
 
-    // Seed random number generator
     srand(time(NULL));
 
-    // Insert 5000 random key-value pairs with sizes between 50 and 300 bytes
-    insert_random_kv_pairs(ssd, 500000, 50, 300);
+    for (int i = 0; i < 500000; i++) {
+        int klen = 10;
+        int vlen = 10;
+        int val = i;
+        char key[klen]; 
+        sprintf(key, "%d", i);
+        write(ssd, key, val, klen, vlen);
+    }
 
-    // Print statistics
-    print_dentries(ssd->gmd[0]);
+    // Insert 5000 random key-value pairs with sizes between 50 and 300 bytes
+    //insert_random_kv_pairs(ssd, 50000, 0, 200);
+
     get_stats(ssd);
 
     /*
