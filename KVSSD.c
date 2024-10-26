@@ -1,7 +1,7 @@
 #include "KVSSD.h"
 
 // Function to initialize a KVSSD instance
-void init_KVSSD(KVSSD *ssd, unsigned long long capacity, int page_size, int slab_size, int threshold) {
+void init_KVSSD(KVSSD *ssd, uint64_t capacity, int page_size, int slab_size, int threshold) {
     ssd->threshold = threshold;
     ssd->capacity = capacity;
     ssd->page_size = page_size;
@@ -31,25 +31,25 @@ int gmd_size(KVSSD *kvssd) {
     return (kvssd->tt_pages * kvssd->address_size) / (1024 * 1024);
 }
 
-// returns murmurhash 64B version (unsigned long long)
-unsigned long long hash_k(const char *key) {
+// returns murmurhash 64B version 
+uint64_t hash_k(const char *key) {
     uint32_t seed = 42;
     int len = strlen(key); 
-    unsigned long long hash = MurmurHash3_x64_64(key, len, seed);
+    uint64_t hash = MurmurHash3_x64_64(key, len, seed);
     return hash;  
 }
 
 // Returns index of translation page
-int get_translation_page(KVSSD *ssd, unsigned long long key_hash) {
+int get_translation_page(KVSSD *ssd, uint64_t key_hash) {
     return key_hash % ssd->gmd_len;
 }
 
 bool write(KVSSD *kvssd, const char *key, int val, int klen, int vlen) {
-    unsigned long long key_hash = hash_k(key);
+    uint64_t key_hash = hash_k(key);
     //printf("Initial key hash: %llu\n", key_hash);
 
     for (int i = 0; i < kvssd->max_retry; i++) {
-        unsigned long long key_hash_retry = key_hash + i * i;
+        uint64_t key_hash_retry = key_hash + i * i;
         int t_page_idx = get_translation_page(kvssd, key_hash_retry);
         //printf("Retry %d: Key hash retry: %llu, Translation page index: %zu\n", i, key_hash_retry, t_page_idx); // Debugging the key hash retry and page index
 
@@ -59,9 +59,10 @@ bool write(KVSSD *kvssd, const char *key, int val, int klen, int vlen) {
             //printf("Creating new translation page at index %zu\n", t_page_idx); // Indicates a new page is being created
             t_page = create_translation_page(kvssd->page_size, kvssd->slab_size, kvssd->threshold); 
             kvssd->gmd[t_page_idx] = t_page;
-        } //else {
+        } 
+        else {
             //printf("Using existing translation page at index %zu\n", t_page_idx); // Indicates using an existing page
-        //}
+        }
 
         bool ret = insert(t_page, key_hash_retry, klen, vlen, key, val);
 
@@ -70,17 +71,20 @@ bool write(KVSSD *kvssd, const char *key, int val, int klen, int vlen) {
         }
         
         kvssd->retries++;
+        printf("Insert failed, retrying\n");
     }
+
+    printf("Couldn't insert KVP\n");
 
     kvssd->rejections++;
     return false;  // All retries exhausted, write failed
 }
 
 bool read(KVSSD *kvssd, const char *key) {
-    unsigned long long key_hash = hash_k(key);
+    uint64_t key_hash = hash_k(key);
 
     for (int i = 0; i < kvssd->max_retry; i++){
-        unsigned long long key_hash_retry = key_hash + i * i;
+        uint64_t key_hash_retry = key_hash + i * i;
         int t_page_idx = get_translation_page(kvssd, key_hash_retry);
         TranslationPage *t_page = kvssd->gmd[t_page_idx];
 
@@ -99,10 +103,10 @@ bool read(KVSSD *kvssd, const char *key) {
 }
 
 bool delete(KVSSD *kvssd, const char *key) {
-    unsigned long long key_hash = hash_k(key); 
+    uint64_t key_hash = hash_k(key); 
 
     for (int i = 0; i < kvssd->max_retry; i++) {
-        unsigned long long key_hash_retry = key_hash + i * i;  
+        uint64_t key_hash_retry = key_hash + i * i;  
         int t_page_idx = get_translation_page(kvssd, key_hash_retry);  
         TranslationPage *t_page = kvssd->gmd[t_page_idx];  
 
@@ -238,6 +242,8 @@ int main() {
         write(ssd, key, val, klen, vlen);
     }
 
+    printf("Finished insertions\n");
+
     // Insert 5000 random key-value pairs with sizes between 50 and 300 bytes
     //insert_random_kv_pairs(ssd, 50000, 0, 200);
 
@@ -309,7 +315,7 @@ int main() {
     //}
     
     /*
-    for (unsigned int i = 0; i < 50000; i++) {
+    for (int i = 0; i < 50000; i++) {
         memcpy(key, &i, klen); // Convert integer i to 4-byte key
         write(ssd, key, klen, val, vlen);
     }

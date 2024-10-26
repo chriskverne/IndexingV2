@@ -20,7 +20,7 @@ static inline uint64_t fmix64(uint64_t k) {
     return k;
 }
 
-unsigned long long MurmurHash3_x64_64(const void *key, int len, uint32_t seed) {
+uint64_t MurmurHash3_x64_64(const void *key, int len, uint32_t seed) {
     const uint8_t *data = (const uint8_t *)key;
     const int nblocks = len / 8;  // Changed from 16 to 8 for 64-bit version
     

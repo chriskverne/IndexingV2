@@ -7,12 +7,13 @@
 #include <string.h> 
 #include <stdbool.h> 
 #include <assert.h> 
+#include <stdint.h>
 #include "math.h"
 
 // Hashmap structures
 
 typedef struct {
-    unsigned long long key_hash;
+    uint64_t key_hash;
     int value; // -1 or index in d_entries array
     bool is_occupied;
 } HashMapEntry;
@@ -24,7 +25,7 @@ typedef struct {
 
 // Hashset structures
 typedef struct {
-    unsigned long long key_hash;
+    uint64_t key_hash;
     bool is_occupied;
 } HashSetEntry;
 
@@ -35,7 +36,7 @@ typedef struct {
 
 // Dentry structure
 typedef struct {
-    unsigned long long key_hash; 
+    uint64_t key_hash; 
     char key[256]; 
     int val;
     int klen;
@@ -74,42 +75,42 @@ void print_dentries(TranslationPage *tp);
 
 HashMap* create_hashmap(int size);
 
-int hash_function_map(unsigned long long key_hash, int table_size);
+int hash_function_map(uint64_t key_hash, int table_size);
 
-void hashmap_put(HashMap *map, unsigned long long key_hash, int value);
+void hashmap_put(HashMap *map, uint64_t key_hash, int value);
 
-int hashmap_get(HashMap *map, unsigned long long key_hash);
+int hashmap_get(HashMap *map, uint64_t key_hash);
 
-void hashmap_delete(HashMap *map, unsigned long long key_hash);
+void hashmap_delete(HashMap *map, uint64_t key_hash);
 
 HashSet* create_hash_set(int size);
 
-int hash_function(unsigned long long key_hash, int table_size);
+int hash_function(uint64_t key_hash, int table_size);
 
-void hash_set_put(HashSet *set, unsigned long long key_hash);
+void hash_set_put(HashSet *set, uint64_t key_hash);
 
-bool hash_set_contains(HashSet *set, unsigned long long key_hash);
+bool hash_set_contains(HashSet *set, uint64_t key_hash);
 
-void hash_set_delete(HashSet *set, unsigned long long key_hash);
+void hash_set_delete(HashSet *set, uint64_t key_hash);
 
 TranslationPage* create_translation_page(int page_size, int slab_size, int threshold);
 
-DEntry create_dentry(unsigned long long key_hash, const char *key, int val, int klen, int vlen, int num_slabs);
+DEntry create_dentry(uint64_t key_hash, const char *key, int val, int klen, int vlen, int num_slabs);
 
 void update_key_hashes(TranslationPage *tp);
 
-bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
+bool insert(TranslationPage *tp, uint64_t key_hash, int klen, int vlen, const char *key, int val);
 
-bool insert_dentry(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
+bool insert_dentry(TranslationPage *tp, uint64_t key_hash, int klen, int vlen, const char *key, int val);
 
-bool insert_dentry_by_eviction(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val);
+bool insert_dentry_by_eviction(TranslationPage *tp, uint64_t key_hash, int klen, int vlen, const char *key, int val);
 
-bool insert_ientry(TranslationPage *tp, unsigned long long key_hash);
+bool insert_ientry(TranslationPage *tp, uint64_t key_hash);
 
-bool find_value_by_key_hash(TranslationPage *tp, unsigned long long key_hash, const char *key);
+bool find_value_by_key_hash(TranslationPage *tp, uint64_t key_hash, const char *key);
 
-bool delete_dentry(TranslationPage *tp, unsigned long long key_hash);
+bool delete_dentry(TranslationPage *tp, uint64_t key_hash);
 
-bool delete_ientry(TranslationPage *tp, unsigned long long key_hash);
+bool delete_ientry(TranslationPage *tp, uint64_t key_hash);
 
 #endif // TRANSLATIONPAGE_H

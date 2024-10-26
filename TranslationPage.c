@@ -81,12 +81,12 @@ HashMap* create_hashmap(int size) {
 }
 
 // Simple hash function
-int hash_function_map(unsigned long long key_hash, int table_size) {
+int hash_function_map(uint64_t key_hash, int table_size) {
     return key_hash % table_size;
 }
 
 // put method
-void hashmap_put(HashMap *map, unsigned long long key_hash, int value) {
+void hashmap_put(HashMap *map, uint64_t key_hash, int value) {
     int index = hash_function_map(key_hash, map->size);
 
     while (map->table[index].is_occupied && map->table[index].key_hash != key_hash) {
@@ -101,7 +101,7 @@ void hashmap_put(HashMap *map, unsigned long long key_hash, int value) {
 
 // Function to get the value associated with a key_hash
 // Returns -2 (NOT_FOUND) if the key_hash is not found
-int hashmap_get(HashMap *map, unsigned long long key_hash) {
+int hashmap_get(HashMap *map, uint64_t key_hash) {
     int index = hash_function_map(key_hash, map->size);
 
     while (map->table[index].is_occupied) {
@@ -116,7 +116,7 @@ int hashmap_get(HashMap *map, unsigned long long key_hash) {
 }
 
 // Function to delete a key_hash from the hashmap
-void hashmap_delete(HashMap *map, unsigned long long key_hash) {
+void hashmap_delete(HashMap *map, uint64_t key_hash) {
     int index = hash_function_map(key_hash, map->size);
 
     while (map->table[index].is_occupied) {
@@ -145,12 +145,12 @@ HashSet* create_hash_set(int size) {
 }
 
 // Hash function to map key_hash to an index
-int hash_function(unsigned long long key_hash, int table_size) {
+int hash_function(uint64_t key_hash, int table_size) {
     return key_hash % table_size;
 }
 
 // Function to insert a key_hash into the set
-void hash_set_put(HashSet *set, unsigned long long key_hash) {
+void hash_set_put(HashSet *set, uint64_t key_hash) {
     int index = hash_function(key_hash, set->size);
 
     // Linear probing in case of collision
@@ -168,7 +168,7 @@ void hash_set_put(HashSet *set, unsigned long long key_hash) {
 }
 
 // Function to check if a key_hash is in the set
-bool hash_set_contains(HashSet *set, unsigned long long key_hash) {
+bool hash_set_contains(HashSet *set, uint64_t key_hash) {
     int index = hash_function(key_hash, set->size);
 
     // Linear probing to search for the key
@@ -183,7 +183,7 @@ bool hash_set_contains(HashSet *set, unsigned long long key_hash) {
 }
 
 // Function to delete a key_hash from the set
-void hash_set_delete(HashSet *set, unsigned long long key_hash) {
+void hash_set_delete(HashSet *set, uint64_t key_hash) {
     int index = hash_function(key_hash, set->size);
 
     // Linear probing to find the key
@@ -199,7 +199,10 @@ void hash_set_delete(HashSet *set, unsigned long long key_hash) {
 // TranslationPage Constructor:
 TranslationPage* create_translation_page(int page_size, int slab_size, int threshold) {
     TranslationPage *tp = malloc(sizeof(TranslationPage));
-    if (!tp) return NULL;
+    if (!tp) {
+        fprintf(stderr, "Memory allocation failed for TranslationPage\n");
+        return NULL;
+    }
 
     tp->threshold = threshold;
     tp->slab_size = slab_size; 
@@ -226,7 +229,7 @@ TranslationPage* create_translation_page(int page_size, int slab_size, int thres
     return tp;
 }
 
-DEntry create_dentry(unsigned long long key_hash, const char *key, int val, int klen, int vlen, int num_slabs) {
+DEntry create_dentry(uint64_t key_hash, const char *key, int val, int klen, int vlen, int num_slabs) {
     DEntry new_entry;  // Create a new DEntry object
     new_entry.key_hash = key_hash;
     strncpy(new_entry.key, key, sizeof(new_entry.key) - 1);
@@ -275,7 +278,7 @@ bool check_hash_collision(int idx ,TranslationPage *tp, const char *key){
     return false;
 }
 
-bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val) {
+bool insert(TranslationPage *tp, uint64_t key_hash, int klen, int vlen, const char *key, int val) {
     int slabs_needed = ceil((double)(klen + vlen) / tp->slab_size);
 
     // if key_hash exists update
@@ -392,7 +395,7 @@ bool insert(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen
 }
 
 // Function to insert a DEntry in an empty slab
-bool insert_dentry(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val) {
+bool insert_dentry(TranslationPage *tp, uint64_t key_hash, int klen, int vlen, const char *key, int val) {
     //printf("Inserting new D-entry\n");
     int slabs_needed = ceil((double)(klen + vlen) / tp->slab_size);
     if (tp->d_entry_slabs + tp->i_entry_count + slabs_needed > tp->tt_slab){
@@ -413,14 +416,14 @@ bool insert_dentry(TranslationPage *tp, unsigned long long key_hash, int klen, i
 }
 
 // insert d_entry by eviction
-bool insert_dentry_by_eviction(TranslationPage *tp, unsigned long long key_hash, int klen, int vlen, const char *key, int val) {
+bool insert_dentry_by_eviction(TranslationPage *tp, uint64_t key_hash, int klen, int vlen, const char *key, int val) {
     int slabs_needed = ceil((double)(klen + vlen) / tp->slab_size);
     //printf("Inserting D-entry by evicting other D-entry, New d-entry needs: %d slabs\n", slabs_needed);
     // Look for D-entry of greater size to evict
     for(int i = 0; i < tp->dentry_idx; i++){
         if(tp->d_entries[i].num_slabs > slabs_needed){
             //printf("larger D-entry found, key_hash: %d\n", tp->d_entries[i].key_hash);
-            unsigned long long evict_key_hash = tp->d_entries[i].key_hash;
+            uint64_t evict_key_hash = tp->d_entries[i].key_hash;
             delete_dentry(tp, evict_key_hash);
             insert_dentry(tp, key_hash, klen, vlen, key, val);
             insert_ientry(tp, evict_key_hash);
@@ -436,7 +439,7 @@ bool insert_dentry_by_eviction(TranslationPage *tp, unsigned long long key_hash,
 }
 
 // SHOULD BE DONE
-bool insert_ientry(TranslationPage *tp, unsigned long long key_hash) {
+bool insert_ientry(TranslationPage *tp, uint64_t key_hash) {
     //printf("Inserting new I-entry\n");
     // Not enough space, can't insert I-entry
     if (tp->d_entry_slabs + tp->i_entry_count >= tp->tt_slab){
@@ -451,7 +454,7 @@ bool insert_ientry(TranslationPage *tp, unsigned long long key_hash) {
 }
 
 // finds value from key_hash
-bool find_value_by_key_hash(TranslationPage *tp, unsigned long long key_hash, const char *key) {
+bool find_value_by_key_hash(TranslationPage *tp, uint64_t key_hash, const char *key) {
     if (hashmap_get(tp->key_hashes, key_hash) != NOT_FOUND) {  // if key_hash in self.key_hashes: (key_hash exists)
         int idx = hashmap_get(tp->key_hashes, key_hash);  // Check if key_hash exists
         if (idx != -1 && idx < tp->dentry_idx) {  // It's a D-entry
@@ -469,7 +472,7 @@ bool find_value_by_key_hash(TranslationPage *tp, unsigned long long key_hash, co
 }
 
 // SHOULD BE DONE
-bool delete_dentry(TranslationPage *tp, unsigned long long key_hash) {
+bool delete_dentry(TranslationPage *tp, uint64_t key_hash) {
     //printf("Trying to delete d-entry, key_hash: %d", key_hash);
     //print_dentries(tp);
     //print_key_hashes(tp);
@@ -507,7 +510,7 @@ bool delete_dentry(TranslationPage *tp, unsigned long long key_hash) {
 }
 
 // SHOULD BE DONE
-bool delete_ientry(TranslationPage *tp, unsigned long long key_hash) {
+bool delete_ientry(TranslationPage *tp, uint64_t key_hash) {
     if (hash_set_contains(tp->i_entries, key_hash)) {  // if key_hash in self.i_entries: (checks if key_hash is in Ientries)
         hash_set_delete(tp->i_entries, key_hash);  // self.i_entries.remove(key_hash) (remove key_hash from i_entries)
         hashmap_delete(tp->key_hashes, key_hash);  // del self.key_hashes[key_hash] (delete key_hash from key_hashes)
@@ -529,13 +532,13 @@ void generate_random_string_tp(char *str, int length) {
 
 /*
 int main() {
-    unsigned long long key_hash1 = 1ULL;
-    unsigned long long key_hash2 = 2ULL;
-    unsigned long long key_hash3 = 3ULL;
-    unsigned long long key_hash4 = 4ULL;
-    unsigned long long key_hash5 = 5ULL;
-    unsigned long long key_hash6 = 6ULL;
-    unsigned long long key_hash7 = 7ULL;
+    uint64_t key_hash1 = 1ULL;
+    uint64_t key_hash2 = 2ULL;
+    uint64_t key_hash3 = 3ULL;
+    uint64_t key_hash4 = 4ULL;
+    uint64_t key_hash5 = 5ULL;
+    uint64_t key_hash6 = 6ULL;
+    uint64_t key_hash7 = 7ULL;
 
 
     // Test 1 insert D-entry/I-entry and insert D-entry by eviction (Looks good!)
@@ -675,7 +678,7 @@ int main() {
         generate_random_string_tp(key, klen);
 
         // Generate random key_hash and value
-        unsigned long long key_hash = rand() % 100000000000ULL;
+        uint64_t key_hash = rand() % 100000000000ULL;
         int value = rand() % 10000;
 
         // Insert the key-value pair
