@@ -147,6 +147,25 @@ void get_stats(KVSSD *kvssd) {
     int tt_inserts = 0, tt_updates = 0, tt_rejections = 0;
     int tt_read_d_entry = 0, tt_read_i_entry = 0, tt_read_retries = 0, tt_read_errors = 0;
     int tt_pages = 0;
+    unsigned int tt_space = 0;
+    unsigned int td_space = 0;
+    unsigned int ti_space = 0;
+
+    // Get space taken by I-entries and D-entries
+    for (size_t i = 0; i < kvssd->gmd_len; i++) {
+        TranslationPage *t_page = kvssd->gmd[i];
+        if (t_page == NULL) 
+            continue;
+        
+        for (int j = 0; j < t_page->dentry_idx; j++){
+            tt_space += t_page->d_entries[j].num_slabs * kvssd->slab_size;
+            td_space += t_page->d_entries[j].num_slabs * kvssd->slab_size;
+        }
+
+        ti_space += t_page->i_entry_count * kvssd->slab_size;
+        tt_space += t_page->i_entry_count * kvssd->slab_size;
+    }
+
 
     for (size_t i = 0; i < kvssd->gmd_len; i++) {
         TranslationPage *t_page = kvssd->gmd[i];
