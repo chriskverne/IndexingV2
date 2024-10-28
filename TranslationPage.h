@@ -36,13 +36,14 @@ typedef struct {
 
 // Dentry structure
 typedef struct {
-    uint64_t key_hash; 
-    char key[256]; 
+    uint64_t key_hash;
+    char *key; // Pointer for dynamic allocation
     int val;
     int klen;
     int vlen;
     int num_slabs;
 } DEntry;
+
 
 typedef struct {
     int threshold;

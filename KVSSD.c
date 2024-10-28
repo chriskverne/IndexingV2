@@ -15,6 +15,10 @@ void init_KVSSD(KVSSD *ssd, uint64_t capacity, int page_size, int slab_size, int
     ssd->gmd_len = ssd->tt_pages * ssd->l2p_ratio;
 
     ssd->gmd = malloc(ssd->gmd_len * sizeof(TranslationPage *));
+    if (ssd->gmd == NULL){
+        fprintf(stderr, "Failed to allocate memory for GMD\n");
+        exit(1); // Or handle error accordingly
+    }
     for (size_t i = 0; i < ssd->gmd_len; i++) 
         ssd->gmd[i] = NULL; // self.gmd = [None] * self.gmd_len
     
@@ -181,47 +185,6 @@ void get_stats(KVSSD *kvssd) {
     printf("Read_Retry: %d, Read_Error: %d\n", tt_read_retries, tt_read_errors);
 }
 
-// Function to generate a random string of a given length
-void generate_random_string(char *str, int length) {
-    static const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    for (int i = 0; i < length; i++) {
-        int key = rand() % (int)(sizeof(charset) - 1);
-        str[i] = charset[key];
-    }
-    str[length] = '\0'; // Null-terminate the string
-}
-
-void insert_random_kv_pairs(KVSSD *ssd, int num_pairs, int min_size, int max_size) {
-    for (int i = 0; i < num_pairs; i++) {
-        int klen = min_size + rand() % (max_size - min_size + 1); // Random key length between min_size and max_size
-        int vlen = min_size + rand() % (max_size - min_size + 1); // Random value length between min_size and max_size
-        
-        //printf("klen + vlen : %d\n", klen + vlen);
-
-        char *key = malloc(klen + 1);  // +1 for the null terminator
-        char *val = malloc(vlen + 1);  // +1 for the null terminator
-
-        if (key == NULL || val == NULL) {
-            fprintf(stderr, "Failed to allocate memory for key-value pair.\n");
-            return;
-        }
-
-        generate_random_string(key, klen);  // Generate random key
-        generate_random_string(val, vlen);  // Generate random value
-
-        int value_int = rand() % 10000;  // Example value: random integer
-
-
-        // Insert the key-value pair into the KVSSD
-        if (!write(ssd, key, value_int, klen, vlen)) {
-            printf("Failed to insert key: %s\n", key);
-        }
-
-        free(key);
-        free(val);
-    }
-}
-
 int main() {
     KVSSD *ssd = malloc(sizeof(KVSSD));
     if (ssd == NULL) {
@@ -229,28 +192,23 @@ int main() {
         return 1;
     }
 
-    init_KVSSD(ssd, 4ULL * 1024 * 1024 * 1024, 1024, 20, 200);
+    init_KVSSD(ssd, 4ULL * 1024 * 1024 * 10, 1024, 20, 200);
 
-    srand(time(NULL));
-
-    for (int i = 0; i < 500000; i++) {
-        int klen = 10;
-        int vlen = 10;
+    for (int i = 1; i < 500001; i++) {
+        if(i % 100000 == 0){
+            printf("%dth iteration\n", i);
+        }
+        int klen = 1 + rand() % 20;    // Random key length between 1 and 20
+        int vlen = 1 + rand() % 300;
         int val = i;
         char key[klen]; 
         sprintf(key, "%d", i);
         write(ssd, key, val, klen, vlen);
     }
 
-    printf("Finished insertions\n");
-
-    // Insert 5000 random key-value pairs with sizes between 50 and 300 bytes
-    //insert_random_kv_pairs(ssd, 50000, 0, 200);
-
     get_stats(ssd);
-
+    
     /*
-
     // Looks good!
     printf("SSD Size: %llu\n", ssd->capacity);
     printf("Block size: %d\n", ssd->block_size);
@@ -306,22 +264,8 @@ int main() {
     
     get_stats(ssd);
     */
-    //for(int i = 0; i < ssd->gmd_len; i++){
-        //TranslationPage *tp = ssd->gmd[i];
-        //if (tp == NULL)
-            //continue;
-
-        //print_dentries(tp); 
-    //}
     
-    /*
-    for (int i = 0; i < 50000; i++) {
-        memcpy(key, &i, klen); // Convert integer i to 4-byte key
-        write(ssd, key, klen, val, vlen);
-    }
 
-    get_stats(ssd);
-    */
 
     return 0;
 }

@@ -68,7 +68,15 @@ void print_key_hashes(TranslationPage *tp){
 // Create hashmap of size tt_slab
 HashMap* create_hashmap(int size) {
     HashMap *map = (HashMap*)malloc(sizeof(HashMap));
+    if (map == NULL) {
+        fprintf(stderr, "Failed to allocate memory for HashMap\n");
+        exit(1); // Or handle error accordingly
+    }
     map->table = (HashMapEntry*)malloc(size * sizeof(HashMapEntry));
+    if (map->table == NULL){
+        fprintf(stderr, "Failed to allocate memory for HashMap table\n");
+        exit(1); // Or handle error accordingly        
+    }
     map->size = size;
 
     for (int i = 0; i < size; i++) {
@@ -133,7 +141,15 @@ void hashmap_delete(HashMap *map, uint64_t key_hash) {
 // Function to create a hash set with a dynamic size
 HashSet* create_hash_set(int size) {
     HashSet *set = (HashSet*)malloc(sizeof(HashSet));
+    if (set == NULL){
+        fprintf(stderr, "Failed to allocate memory for Hashset\n");
+        exit(1); // Or handle error accordingly
+    }
     set->table = (HashSetEntry*)malloc(size * sizeof(HashSetEntry));
+    if (set->table == NULL){
+        fprintf(stderr, "Failed to allocate memory for Hashset table\n");
+        exit(1); // Or handle error accordingly
+    }
     set->size = size;
 
     // Initialize all slots as empty
@@ -209,6 +225,10 @@ TranslationPage* create_translation_page(int page_size, int slab_size, int thres
     tp->tt_slab = page_size / slab_size;
 
     tp->d_entries = (DEntry*)malloc(tp->tt_slab * sizeof(DEntry));
+    if (tp->d_entries == NULL){
+        fprintf(stderr, "Failed to allocate memory for d_entries\n");
+        exit(1); // Or handle error accordingly
+    }
     tp->i_entries = create_hash_set(tp->tt_slab); 
     tp->key_hashes = create_hashmap(tp->tt_slab);
 
@@ -229,16 +249,20 @@ TranslationPage* create_translation_page(int page_size, int slab_size, int thres
     return tp;
 }
 
-DEntry create_dentry(uint64_t key_hash, const char *key, int val, int klen, int vlen, int num_slabs) {
-    DEntry new_entry;  // Create a new DEntry object
+DEntry create_dentry(uint64_t key_hash, const char *key_str, int val, int klen, int vlen, int num_slabs) {
+    DEntry new_entry;
     new_entry.key_hash = key_hash;
-    strncpy(new_entry.key, key, sizeof(new_entry.key) - 1);
-    new_entry.key[sizeof(new_entry.key) - 1] = '\0';  
+    new_entry.key = malloc(strlen(key_str) + 1); 
+    if (new_entry.key == NULL) {
+        fprintf(stderr, "Memory allocation for key failed\n");
+        exit(1);
+    }
+    strcpy(new_entry.key, key_str); 
     new_entry.val = val;
     new_entry.klen = klen;
     new_entry.vlen = vlen;
     new_entry.num_slabs = num_slabs;
-    return new_entry; 
+    return new_entry;
 }
 
 // Updates indexes of key_hashes to reflect change in d_entries array
@@ -432,8 +456,8 @@ bool insert_dentry_by_eviction(TranslationPage *tp, uint64_t key_hash, int klen,
         }
     }
 
-    print_dentries(tp);
-    printf("No entries to evict, tried to insert %d B\n", klen + vlen);
+    //print_dentries(tp);
+    //printf("No entries to evict, tried to insert %d B\n", klen + vlen);
     // no entries of greater size to evict
     return false;
 }
