@@ -151,7 +151,6 @@ void get_stats(KVSSD *kvssd) {
     unsigned int td_space = 0;
     unsigned int ti_space = 0;
 
-    // Get space taken by I-entries and D-entries
     for (size_t i = 0; i < kvssd->gmd_len; i++) {
         TranslationPage *t_page = kvssd->gmd[i];
         if (t_page == NULL) 
@@ -164,14 +163,7 @@ void get_stats(KVSSD *kvssd) {
 
         ti_space += t_page->i_entry_count * kvssd->slab_size;
         tt_space += t_page->i_entry_count * kvssd->slab_size;
-    }
 
-
-    for (size_t i = 0; i < kvssd->gmd_len; i++) {
-        TranslationPage *t_page = kvssd->gmd[i];
-        if (t_page == NULL) 
-            continue;
-        
         tt_d_entry += t_page->dentry_idx;
         tt_i_entry_slab += t_page->i_entry_count;
         //tt_keys += t_page->key_hashes->count; // Assuming hashmap_size() calculates number of keys
@@ -196,6 +188,7 @@ void get_stats(KVSSD *kvssd) {
 
     printf("TT_INDEX_PAGES: %d. TT_SLABS: %ld\n", tt_pages, tt_pages * (kvssd->page_size / kvssd->slab_size));
     printf("D-entry: %d, I-entry: %d, Empty slab: %d\n", tt_d_entry, tt_i_entry_slab, tt_empty_slab);
+    printf("TT_Space: %d, TT_D_Space: %d, TT_I_Space: %d\n", tt_space, td_space, ti_space);
     printf("TT_KEYS: %d, NEW-DENTRY: %d, NEW-IENTRY: %d\n", tt_keys, d_entry, i_entry);
     printf("UPDATE-DENTRY: %d, UPDATE-IENTRY: %d\n", update_d_entry, update_i_entry);
     printf("Retries: %d, Evictions: %d, Rejections: %d\n", tt_retries, tt_evictions, tt_rejections);
