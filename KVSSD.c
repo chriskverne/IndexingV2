@@ -2,6 +2,10 @@
 
 // Function to initialize a KVSSD instance
 void init_KVSSD(KVSSD *ssd, uint64_t capacity, int page_size, int slab_size, int threshold) {
+    ssd->curr_iteration = 0;
+    ssd->max_iterations = 1000000;
+    ssd->kvp_sizes = (int *)malloc(ssd->max_iterations * sizeof(int));
+    
     ssd->threshold = threshold;
     ssd->capacity = capacity;
     ssd->page_size = page_size;
@@ -50,6 +54,14 @@ int get_translation_page(KVSSD *ssd, uint64_t key_hash) {
 
 bool write(KVSSD *kvssd, const char *key, int val, int klen, int vlen) {
     uint64_t key_hash = hash_k(key);
+
+    // Logic for updating the threshold based on the average kvp size
+    ssd->kvp_sizes[kvssd->curr_iteration] = klen + vlen;
+    kvssd->curr_iteration++;
+    if(kvssd->curr_iteration >= kvssd->max_iterations){
+        kvp_sizes->update_threshold(kvssd);
+        kvssd->curr_iteration = 0;
+    }
     //printf("Initial key hash: %llu\n", key_hash);
 
     for (int i = 0; i < kvssd->max_retry; i++) {
@@ -134,6 +146,31 @@ bool delete(KVSSD *kvssd, const char *key) {
     }
 
     return false; 
+}
+
+double get_avg_kv(KVSSD *kvssd){
+    unsigned int sum = 0;
+    for (int i = 0; i < kvssd->max_iterations; i++){
+        sum += kvssd->kvp_sizes[i];
+    }
+
+    return sum / kvssd->max_iterations;
+}
+
+void update_threshold(KVSSD *kvssd){
+    double avg = get_avg_kv(kvssd);
+    int new_threshold = ceil(avg / 20) * 20;
+    if (new_threshold > kvssd->page_size){
+        new_threshold = kvssd->page_size;
+    }
+
+    for (int i=0; i < kvssd->gmd_len; i++){
+        TranslationPage *t_page = kvssd->gmd[i];
+        if (t_page == NULL)
+            continue;
+
+        t_page->threshold = new_threshold;
+    }
 }
 
 // prints the specifics of our kvssd
