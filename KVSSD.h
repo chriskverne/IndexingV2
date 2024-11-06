@@ -40,6 +40,6 @@ int get_translation_page(KVSSD *ssd, uint64_t key_hash);
 bool write(KVSSD *kvssd, const char *key, int klen, int val, int vlen);
 bool read(KVSSD *kvssd, const char *key);
 bool delete(KVSSD *kvssd, const char *key);
-int get_avg_kv(KVSSD *kvssd);
+double get_avg_kv(KVSSD *kvssd);
 void update_threshold(KVSSD *kvssd);
 void get_stats(KVSSD *kvssd);

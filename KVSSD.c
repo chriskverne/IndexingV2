@@ -56,10 +56,10 @@ bool write(KVSSD *kvssd, const char *key, int val, int klen, int vlen) {
     uint64_t key_hash = hash_k(key);
 
     // Logic for updating the threshold based on the average kvp size
-    ssd->kvp_sizes[kvssd->curr_iteration] = klen + vlen;
+    kvssd->kvp_sizes[kvssd->curr_iteration] = klen + vlen;
     kvssd->curr_iteration++;
     if(kvssd->curr_iteration >= kvssd->max_iterations){
-        kvp_sizes->update_threshold(kvssd);
+        update_threshold(kvssd);
         kvssd->curr_iteration = 0;
     }
     //printf("Initial key hash: %llu\n", key_hash);
@@ -158,12 +158,22 @@ double get_avg_kv(KVSSD *kvssd){
 }
 
 void update_threshold(KVSSD *kvssd){
+    //printf("Updating threshold\nOld Threshold: %d\n", kvssd->threshold);
     double avg = get_avg_kv(kvssd);
+    //printf("Found new threshold: %f\n", avg);
     int new_threshold = ceil(avg / 20) * 20;
+
+    // Do nothing if the new threshold is the same as the old one
+    if (new_threshold == kvssd->threshold)
+        return;
+    
+    // If the new threshold is larger than the page size make it equal to the page size
     if (new_threshold > kvssd->page_size){
         new_threshold = kvssd->page_size;
     }
 
+    // Update the threshold in each translation page
+    kvssd->threshold = new_threshold;
     for (int i=0; i < kvssd->gmd_len; i++){
         TranslationPage *t_page = kvssd->gmd[i];
         if (t_page == NULL)
@@ -241,7 +251,7 @@ int main() {
         return 1;
     }
 
-    init_KVSSD(ssd, 4ULL * 1024 * 1024 * 10, 1024, 20, 200);
+    init_KVSSD(ssd, 4ULL * 1024 * 1024 * 1024, 1024, 20, 200);
 
     for (int i = 1; i < 500001; i++) {
         if(i % 100000 == 0){
